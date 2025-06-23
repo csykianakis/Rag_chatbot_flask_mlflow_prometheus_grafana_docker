@@ -1,0 +1,12 @@
+flask
+huggingface-hub
+llama-index
+llama-index-llms-huggingface
+llama-index-embeddings-huggingface
+prometheus-flask-exporter
+prometheus-client
+mlflow
+gunicorn
+sentence-transformers
+transformers
+torch

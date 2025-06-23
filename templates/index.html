@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF Chatbot - Dark Mode</title>
+  <style>
+    /* Base Reset */
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #343541; /* ChatGPT dark background */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Chat Container */
+    #chat-container {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 800px;
+      height: 95vh;
+      background-color: #343541;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* Chat Box */
+    #chat-box {
+      flex-grow: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      color: white;
+      scrollbar-width: thin;
+      scrollbar-color: #555 transparent;
+    }
+
+    #chat-box::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #chat-box::-webkit-scrollbar-thumb {
+      background-color: #555;
+      border-radius: 4px;
+    }
+
+    /* Message Styles */
+    .message {
+      max-width: 70%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 15px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+
+    .user {
+      align-self: flex-end;
+      background-color: #40414f; /* User message bubble */
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .bot {
+      align-self: flex-start;
+      background-color: #444654; /* Bot message bubble */
+      color: white;
+      border-bottom-left-radius: 4px;
+    }
+
+    /* Upload Form */
+    #upload-form {
+      display: flex;
+      gap: 10px;
+      padding: 15px;
+      background-color: #40414f;
+      border-bottom: 1px solid #555;
+    }
+
+    #upload-form label {
+      color: white;
+      font-weight: 500;
+      align-self: center;
+    }
+
+    #upload-form input[type="file"] {
+      border: 1px solid #666;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background-color: #2f3038;
+      color: white;
+      cursor: pointer;
+    }
+
+    #upload-form button {
+      background-color: #10a37f;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    #upload-form button:hover {
+      background-color: #0e8a6f;
+    }
+
+    /* Chat Input Section */
+    #chat-section {
+      display: flex;
+      gap: 10px;
+      padding: 15px;
+      background-color: #40414f;
+      border-top: 1px solid #555;
+    }
+
+    #user-input {
+      flex-grow: 1;
+      border: 1px solid #555;
+      border-radius: 9999px;
+      padding: 12px 20px;
+      font-size: 16px;
+      background-color: #343541;
+      color: white;
+      outline: none;
+    }
+
+    #user-input:focus {
+      border-color: #10a37f;
+    }
+
+    #send-btn {
+      background-color: #10a37f;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-weight: 600;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    #send-btn:hover {
+      background-color: #0e8a6f;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="chat-container">
+    <form id="upload-form">
+      <label for="file">Upload PDF:</label>
+      <input type="file" id="file" name="file" accept=".pdf" required />
+      <button type="submit">Upload</button>
+    </form>
+
+    <div id="chat-box" aria-live="polite" aria-atomic="false"></div>
+
+    <div id="chat-section" style="display:none;">
+      <input type="text" id="user-input" placeholder="Type your question..." autocomplete="off" />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById("chat-box");
+    const userInput = document.getElementById("user-input");
+    const chatSection = document.getElementById("chat-section");
+
+    document.getElementById("upload-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById("file");
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      const response = await fetch("/upload", { method: "POST", body: formData });
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(result.message);
+        chatSection.style.display = "flex";
+      } else {
+        alert(result.error);
+      }
+    });
+
+    document.getElementById("send-btn").addEventListener("click", async () => {
+      const userMessage = userInput.value.trim();
+      if (!userMessage) return;
+
+      // Append user message
+      const userMsgDiv = document.createElement("div");
+      userMsgDiv.classList.add("message", "user");
+      userMsgDiv.textContent = userMessage;
+      chatBox.appendChild(userMsgDiv);
+
+      userInput.value = "";
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Send message to backend
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
+      });
+      const result = await response.json();
+
+      // Append bot response
+      const botMsgDiv = document.createElement("div");
+      botMsgDiv.classList.add("message", "bot");
+
+      if (response.ok) {
+        botMsgDiv.textContent = result.response;
+      } else {
+        botMsgDiv.textContent = `Error: ${result.error}`;
+      }
+      chatBox.appendChild(botMsgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  </script>
+</body>
+</html>
