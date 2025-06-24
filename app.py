@@ -15,6 +15,7 @@ from llama_index.core import get_response_synthesizer
 from prometheus_flask_exporter import PrometheusMetrics
 import mlflow
 from uuid import uuid4
+import torch
 
 load_dotenv()
 
@@ -27,22 +28,24 @@ mlflow.set_tracking_uri("http://mlflow:5000")
 # mlflow.set_tracking_uri("file:/tmp/mlruns")
 mlflow.set_experiment("PDF_QA_Chat_Experiment")
 
-hf_token = os.getenv("HF_TOKEN")
+hf_token = os.getenv("HF_TOKEN") 
 login(hf_token)
+
+device = "mps" if torch.backends.mps.is_available() else "cpu"
 
 # LlamaIndex settings
 Settings.llm = HuggingFaceLLM(
     model_name="meta-llama/Llama-3.2-1B-Instruct",
     tokenizer_name="meta-llama/Llama-3.2-1B-Instruct",
-    device_map="auto",
-    context_window=2048,
-    max_new_tokens=256,
+    device_map=device,
+    context_window=1024,
+    max_new_tokens=150,
     generate_kwargs={"temperature": 0.2},
     system_prompt="You are a helpful and friendly assistant who gives short, direct answers based on the uploaded PDF."
 )
 
 Settings.embed_model = HuggingFaceEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
-Settings.node_parser = SentenceSplitter(chunk_size=1000, chunk_overlap=50)
+Settings.node_parser = SentenceSplitter(chunk_size=300, chunk_overlap=30)
 
 ALLOWED_EXTENSIONS = {'pdf'}
 document_cache = {}
@@ -132,6 +135,4 @@ if __name__ == '__main__':
     print("\nRegistered Routes:")
     for rule in app.url_map.iter_rules():
         print(f"{rule.endpoint:25s} -> {rule.rule}")
-    app.run(host='0.0.0.0', port=8000, debug=True)
-
-
+    app.run(host='0.0.0.0', port=8088, debug=True)
